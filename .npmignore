@@ -1,4 +1,5 @@
 .idea
+npm-module-test/
 *.iml
 **/*.test.js
 **/__snapshots__
