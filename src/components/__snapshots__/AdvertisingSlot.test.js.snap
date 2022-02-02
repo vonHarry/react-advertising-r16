@@ -3,7 +3,7 @@
 exports[`The advertising slot component renders correctly 1`] = `
 <div
   className="my-class"
-  data-r16="1"
+  data-r16="3.0.2"
   id="my-id"
   style={
     Object {
