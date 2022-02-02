@@ -1,9 +1,9 @@
 {
-    "name": "react-advertising-r16",
-    "version": "3.0.2-beta.0",
+    "name": "react16-advertising",
+    "version": "3.0.2-beta.1",
     "description": "Library for display ads in React applications",
     "main": "lib/index.js",
-    "unpkg": "dist/react-advertising-r16.min.js",
+    "unpkg": "dist/react16-advertising.min.js",
     "module": "es/index.js",
     "sideEffects": false,
     "files": [
@@ -44,7 +44,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/vonHarry/react-advertising-r16.git"
+        "url": "https://github.com/vonHarry/react16-advertising.git"
     },
     "author": "Stephan Zhang <mail@vanharry.com>",
     "license": "MIT",

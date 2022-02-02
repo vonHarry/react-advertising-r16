@@ -6,11 +6,11 @@ const { version } = require('../package.json');
 
 [
   {
-    path: join(__dirname, '../dist/react-advertising-r16.min.js'),
+    path: join(__dirname, '../dist/react16-advertising.min.js'),
     versionInfo: `${version}/UMD`,
   },
   {
-    path: join(__dirname, '../dist/react-advertising-r16.min.js.map'),
+    path: join(__dirname, '../dist/react16-advertising.min.js.map'),
     versionInfo: `${version}/UMD`,
   },
   {

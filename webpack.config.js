@@ -4,7 +4,7 @@ module.exports = {
   entry: './src/index.js',
   output: {
     path: path.resolve(__dirname, 'dist'),
-    filename: 'react-advertising-r16.min.js',
+    filename: 'react16-advertising.min.js',
     library: 'ReactAdvertisingR16',
     libraryTarget: 'umd',
   },
