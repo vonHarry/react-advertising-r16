@@ -1,11 +1,8 @@
-const path = require('path');
-
+// noinspection WebpackConfigHighlighting
 module.exports = {
-  entry: './src/index.js',
   output: {
-    path: path.resolve(__dirname, 'dist'),
     filename: 'react16-advertising.min.js',
-    library: 'ReactAdvertisingR16',
+    library: 'React16Advertising',
     libraryTarget: 'umd',
   },
   externals: {

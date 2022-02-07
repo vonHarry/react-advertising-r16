@@ -2,14 +2,10 @@
 
 exports[`The advertising slot component renders correctly 1`] = `
 <div
-  className="my-class"
+  class="my-class"
   data-r16="3.0.2"
-  id="my-id"
-  style={
-    Object {
-      "color": "hotpink",
-    }
-  }
+  id="div-gpt-ad-foo"
+  style="color: hotpink;"
 >
   <h1>
     hello

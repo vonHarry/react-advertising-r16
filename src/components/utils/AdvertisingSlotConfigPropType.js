@@ -34,5 +34,12 @@ export default PropTypes.shape({
         })
       ).isRequired,
     })
-  ).isRequired,
+  ),
+  enableLazyLoad: PropTypes.oneOfType([
+    PropTypes.bool,
+    PropTypes.shape({
+      marginPercent: PropTypes.number,
+      mobileScaling: PropTypes.number,
+    }),
+  ]),
 });

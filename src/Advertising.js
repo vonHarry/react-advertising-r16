@@ -1,5 +1,10 @@
 import getAdUnits from './utils/getAdUnits';
 
+const defaultLazyLoadConfig = {
+  marginPercent: 0,
+  mobileScaling: 1,
+};
+
 export default class Advertising {
   constructor(config, plugins = [], onError = () => {}) {
     this.config = config;
@@ -11,22 +16,28 @@ export default class Advertising {
     this.customEventCallbacks = {};
     this.customEventHandlers = {};
     this.queue = [];
-
-    if (config) {
-      this.setDefaultConfig();
-    }
+    this.setDefaultConfig();
   }
 
   // ---------- PUBLIC METHODS ----------
 
   async setup() {
+    this.isPrebidUsed =
+      typeof this.config.usePrebid === 'undefined'
+        ? typeof window.pbjs !== 'undefined'
+        : this.config.usePrebid;
     this.executePlugins('setup');
-    const { slots, outOfPageSlots, queue } = this;
+    const { slots, outOfPageSlots, queue, isPrebidUsed } = this;
     this.setupCustomEvents();
-    await Promise.all([
-      Advertising.queueForPrebid(this.setupPrebid.bind(this), this.onError),
+    const setUpQueueItems = [
       Advertising.queueForGPT(this.setupGpt.bind(this), this.onError),
-    ]);
+    ];
+    if (isPrebidUsed) {
+      setUpQueueItems.push(
+        Advertising.queueForPrebid(this.setupPrebid.bind(this), this.onError)
+      );
+    }
+    await Promise.all(setUpQueueItems);
     if (queue.length === 0) {
       return;
     }
@@ -42,37 +53,54 @@ export default class Advertising {
     }
     const divIds = queue.map(({ id }) => id);
     const selectedSlots = queue.map(
-      ({ id }) => slots[id] || outOfPageSlots[id]
+      ({ id }) => {
+        const slot = slots[id] || outOfPageSlots[id];
+        if (!slot.enableLazyLoad) {
+          return slot.enableLazyLoad;
+        }
+      }
     );
-    Advertising.queueForPrebid(
-      () =>
-        window.pbjs.requestBids({
-          adUnitCodes: divIds,
-          bidsBackHandler: () => {
-            window.pbjs.setTargetingForGPTAsync(divIds);
-            Advertising.queueForGPT(
-              () => window.googletag.pubads().refresh(selectedSlots),
-              this.onError
-            );
-          },
-        }),
-      this.onError
-    );
+    if (isPrebidUsed) {
+      Advertising.queueForPrebid(
+        () =>
+          window.pbjs.requestBids({
+            adUnitCodes: divIds,
+            bidsBackHandler: () => {
+              window.pbjs.setTargetingForGPTAsync(divIds);
+              Advertising.queueForGPT(
+                () => window.googletag.pubads().refresh(selectedSlots),
+                this.onError
+              );
+            },
+          }),
+        this.onError
+      );
+    } else {
+      Advertising.queueForGPT(
+        () => window.googletag.pubads().refresh(selectedSlots),
+        this.onError
+      );
+    }
   }
 
   async teardown() {
     this.teardownCustomEvents();
-    await Promise.all([
-      Advertising.queueForPrebid(this.teardownPrebid.bind(this), this.onError),
+    const teardownQueueItems = [
       Advertising.queueForGPT(this.teardownGpt.bind(this), this.onError),
-    ]);
+    ];
+    if (this.isPrebidUsed) {
+      teardownQueueItems.push(
+        Advertising.queueForPrebid(this.teardownPrebid.bind(this), this.onError)
+      );
+    }
+    await Promise.all(teardownQueueItems);
     this.slots = {};
     this.gptSizeMappings = {};
-    this.queue = {};
+    this.queue = [];
   }
 
   activate(id, customEventHandlers = {}) {
-    const { slots } = this;
+    const { slots, isPrebidUsed } = this;
     if (Object.values(slots).length === 0) {
       this.queue.push({ id, customEventHandlers });
       return;
@@ -84,20 +112,27 @@ export default class Advertising {
       return (this.customEventCallbacks[customEventId][id] =
         customEventHandlers[customEventId]);
     });
-    Advertising.queueForPrebid(
-      () =>
-        window.pbjs.requestBids({
-          adUnitCodes: [id],
-          bidsBackHandler: () => {
-            window.pbjs.setTargetingForGPTAsync([id]);
-            Advertising.queueForGPT(
-              () => window.googletag.pubads().refresh([slots[id]]),
-              this.onError
-            );
-          },
-        }),
-      this.onError
-    );
+    if (isPrebidUsed) {
+      Advertising.queueForPrebid(
+        () =>
+          window.pbjs.requestBids({
+            adUnitCodes: [id],
+            bidsBackHandler: () => {
+              window.pbjs.setTargetingForGPTAsync([id]);
+              Advertising.queueForGPT(
+                () => window.googletag.pubads().refresh([slots[id]]),
+                this.onError
+              );
+            },
+          }),
+        this.onError
+      );
+    } else {
+      Advertising.queueForGPT(
+        () => window.googletag.pubads().refresh([slots[id]]),
+        this.onError
+      );
+    }
   }
 
   isConfigReady() {
@@ -292,6 +327,9 @@ export default class Advertising {
   }
 
   setDefaultConfig() {
+    if (!this.config) {
+      return;
+    }
     if (!this.config.prebid) {
       this.config.prebid = {};
     }
@@ -300,6 +338,16 @@ export default class Advertising {
     }
     if (!this.config.targeting) {
       this.config.targeting = {};
+    }
+    if (this.config.enableLazyLoad === true) {
+      this.config.enableLazyLoad = defaultLazyLoadConfig;
+    }
+    if (this.config.slots) {
+      this.config.slots = this.config.slots.map((slot) =>
+        slot.enableLazyLoad === true
+          ? { ...slot, enableLazyLoad: defaultLazyLoadConfig }
+          : slot
+      );
     }
   }
 

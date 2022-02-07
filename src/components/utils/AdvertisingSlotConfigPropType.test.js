@@ -43,7 +43,7 @@ describe('When I check the prop types for a valid slot config', () => {
       }))
   );
   describe('the prop type validation', () =>
-    it('passes', () => void expect(result).toBeUndefined()));
+    void it('passes', () => expect(result).toBeUndefined()));
 });
 describe('When I check the prop types for an invalid slot config', () => {
   let result;
@@ -54,7 +54,7 @@ describe('When I check the prop types for an invalid slot config', () => {
       }))
   );
   describe('the prop type validation', () =>
-    it('fails', () => void expect(result).toBeTruthy()));
+    void it('fails', () => expect(result).toBeTruthy()));
 });
 
 describe('When I check the prop types for a valid slot config', () => {
@@ -78,12 +78,12 @@ describe('When I check the prop types for a valid slot config', () => {
           }))
       );
       describe('the prop type validation', () =>
-        it('passes', () => void expect(result).toBeUndefined()));
+        void it('passes', () => expect(result).toBeUndefined()));
     });
   }
 });
 
-describe('When I check the prop types a slot config', () => {
+describe('When I check the prop types for a slot config', () => {
   const testCases = [
     {
       labelAny: 'blub',
@@ -131,16 +131,16 @@ describe('When I check the prop types a slot config', () => {
       );
       if (expectToPass) {
         describe('the prop type validation', () =>
-          it('passes', () => void expect(result).toBeUndefined()));
+          void it('passes', () => expect(result).toBeUndefined()));
       } else {
         describe('the prop type validation', () =>
-          it('fails', () => void expect(result).toBeTruthy()));
+          void it('fails', () => expect(result).toBeTruthy()));
       }
     });
   }
 });
 
-describe('When I check the prop types a slot config', () => {
+describe('When I check the prop types for a slot config', () => {
   const testCases = [
     {
       labelAll: 'blub',
@@ -188,10 +188,83 @@ describe('When I check the prop types a slot config', () => {
       );
       if (expectToPass) {
         describe('the prop type validation', () =>
-          it('passes', () => void expect(result).toBeUndefined()));
+          void it('passes', () => expect(result).toBeUndefined()));
       } else {
         describe('the prop type validation', () =>
-          it('fails', () => void expect(result).toBeTruthy()));
+          void it('fails', () => expect(result).toBeTruthy()));
+      }
+    });
+  }
+});
+
+describe('When I check the prop types for a slot config', () => {
+  const testCases = [
+    {
+      enableLazyLoad: false,
+      expectToPass: true,
+    },
+    {
+      enableLazyLoad: true,
+      expectToPass: true,
+    },
+    {
+      enableLazyLoad: 'blub',
+      expectToPass: false,
+    },
+    {
+      enableLazyLoad: [],
+      expectToPass: false,
+    },
+    {
+      enableLazyLoad: {},
+      expectToPass: true,
+    },
+    {
+      enableLazyLoad: {
+        mobileScaling: 'blob',
+      },
+      expectToPass: false,
+    },
+    {
+      enableLazyLoad: {
+        mobileScaling: 666,
+      },
+      expectToPass: true,
+    },
+    {
+      enableLazyLoad: {
+        marginPercent: 'blob',
+      },
+      expectToPass: false,
+    },
+    {
+      enableLazyLoad: {
+        marginPercent: 666,
+      },
+      expectToPass: true,
+    },
+  ];
+  for (let i = 0; i < testCases.length; i++) {
+    const { enableLazyLoad, expectToPass } = testCases[i];
+    describe(`with enableLazyLoad config ${JSON.stringify(
+      enableLazyLoad
+    )}`, () => {
+      let result;
+      beforeEach(
+        () =>
+          (result = checkPropTypes(MyComponent.propTypes, {
+            config: {
+              id: 'thud',
+              enableLazyLoad,
+            },
+          }))
+      );
+      if (expectToPass) {
+        describe('the prop type validation', () =>
+          void it('passes', () => expect(result).toBeUndefined()));
+      } else {
+        describe('the prop type validation', () =>
+          void it('fails', () => expect(result).toBeTruthy()));
       }
     });
   }

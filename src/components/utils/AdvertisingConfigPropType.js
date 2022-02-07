@@ -4,6 +4,7 @@ import AdvertisingSlotConfigPropType from './AdvertisingSlotConfigPropType';
 export default PropTypes.shape({
   path: PropTypes.string,
   targeting: PropTypes.object,
+  usePrebid: PropTypes.bool,
   prebid: PropTypes.shape({
     debug: PropTypes.bool,
     bidderTimeout: PropTypes.number,
@@ -103,4 +104,11 @@ export default PropTypes.shape({
       divIdPrefix: PropTypes.string,
     })
   ),
+  enableLazyLoad: PropTypes.oneOfType([
+    PropTypes.bool,
+    PropTypes.shape({
+      marginPercent: PropTypes.number,
+      mobileScaling: PropTypes.number,
+    }),
+  ]),
 });
