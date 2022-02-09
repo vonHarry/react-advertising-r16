@@ -65,12 +65,14 @@ export default class AdvertisingProvider extends Component {
     if (this.props.config) {
       await this.teardown();
     }
+    console.log('AdvertisingProvider: componentWillUnmount finished');
   }
 
   async teardown() {
-    this.setState({ activate: () => {}, config: null });
     await this.advertising?.teardown();
     this.advertising = null;
+    this.setState({ activate: () => {}, config: null });
+    console.log('AdvertisingProvider: teardown finished');
   }
 
   initialize() {
@@ -80,11 +82,13 @@ export default class AdvertisingProvider extends Component {
 
   render() {
     const { activate, config } = this.state;
-    return (
-      <AdvertisingContext.Provider value={{ activate, config }}>
-        {this.props.children}
-      </AdvertisingContext.Provider>
-    );
+    if (config) {
+      return (
+        <AdvertisingContext.Provider value={{ activate, config }}>
+          {this.props.children}
+        </AdvertisingContext.Provider>
+      );
+    }
   }
 }
 

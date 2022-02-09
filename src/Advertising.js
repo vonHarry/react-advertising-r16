@@ -1,8 +1,9 @@
 import getAdUnits from './utils/getAdUnits';
 
 const defaultLazyLoadConfig = {
-  marginPercent: 0,
+  marginPercent: 100,
   mobileScaling: 1,
+  rootMargin: '20% 0% 100% 0%'
 };
 
 export default class Advertising {
@@ -56,7 +57,7 @@ export default class Advertising {
       ({ id }) => {
         const slot = slots[id] || outOfPageSlots[id];
         if (!slot.enableLazyLoad) {
-          return slot.enableLazyLoad;
+          return slot;
         }
       }
     );
@@ -97,6 +98,7 @@ export default class Advertising {
     this.slots = {};
     this.gptSizeMappings = {};
     this.queue = [];
+    console.log('Advertising: teardown finished');
   }
 
   activate(id, customEventHandlers = {}) {
@@ -343,11 +345,11 @@ export default class Advertising {
       this.config.enableLazyLoad = defaultLazyLoadConfig;
     }
     if (this.config.slots) {
-      this.config.slots = this.config.slots.map((slot) =>
-        slot.enableLazyLoad === true
-          ? { ...slot, enableLazyLoad: defaultLazyLoadConfig }
-          : slot
-      );
+      this.config.slots = this.config.slots.map((slot) => {
+        const isLazyLoadingEnabled = slot.enableLazyLoad === true;
+        const newSlot = isLazyLoadingEnabled ? { ...slot, enableLazyLoad: defaultLazyLoadConfig } : slot;
+        return newSlot;
+      });
     }
   }
 

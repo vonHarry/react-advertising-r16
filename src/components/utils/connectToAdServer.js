@@ -1,9 +1,13 @@
 import React from 'react';
 import AdvertisingContext from '../../AdvertisingContext';
-import isLazyLoading from './isLazyLoading';
+import getLazyLoadConfig from './getLazyLoadConfig';
 
 export default (Component) => (props) => (
   <AdvertisingContext.Consumer>
-    {({ activate, config }) => <Component {...props} activate={activate} lazyLoad={isLazyLoading(config)} />}
+    {(contextData) => {
+      const { activate, config } = contextData;
+      const lazyConfig = getLazyLoadConfig(config, props.id);
+      return <Component {...props} activate={activate} lazyConfig={lazyConfig} />;
+    }}
   </AdvertisingContext.Consumer>
 );

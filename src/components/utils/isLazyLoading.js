@@ -1,4 +1,4 @@
-export default function isLazyLoading(config) {
+export default function isLazyLoading(id, config) {
   if (!config?.slots) {
     return false;
   }

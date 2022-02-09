@@ -3,7 +3,7 @@ export default function getLazyLoadConfig(config, id) {
     return null;
   }
   const slotConfig = config.slots.find((slot) => slot.id === id);
-  if (!slotConfig) {
+  if (typeof slotConfig !== 'object') {
     return null;
   }
   if (
@@ -12,5 +12,5 @@ export default function getLazyLoadConfig(config, id) {
   ) {
     return slotConfig.enableLazyLoad;
   }
-  return config?.enableLazyLoad === undefined ? null : config?.enableLazyLoad;
+  return null;
 }

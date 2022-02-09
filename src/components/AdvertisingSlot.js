@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
-import connectToAdServer from './utils/connectToAdServer';
 import PropTypes from 'prop-types';
 import { InView } from 'react-intersection-observer';
+import connectToAdServer from './utils/connectToAdServer';
 
 class AdvertisingSlot extends Component {
   constructor(props) {
@@ -10,23 +10,30 @@ class AdvertisingSlot extends Component {
   }
 
   componentDidMount() {
-    const { lazyLoad } = this.props;
-    if (!lazyLoad) {
+    if (!this.isLazy()) {
       this.activateSlot();
     }
+  }
+
+  isLazy() {
+    return !(this.props.lazyConfig === undefined || this.props.lazyConfig === null)
   }
 
   componentDidUpdate(prevProps) {
-    const { activate, lazyLoad } = this.props;
+    console.log('AdvertisingSlot: componentDidUpdate', this.triggeredLazy, !this.isLazy());
+    const { activate } = this.props;
     this.triggeredLazy = false;
-    if (prevProps.activate !== activate && !lazyLoad) {
+    if (prevProps.activate !== activate && !this.isLazy()) {
+      console.log('AdvertisingSlot: componentDidUpdate active slot');
       this.activateSlot();
     }
+    console.log('AdvertisingSlot: componentDidUpdate finished');
   }
 
   triggerLazyLoad() {
-    this.triggeredLazy = true;
+    console.log('AdvertisingSlot: triggerLazyLoad', this.triggeredLazy, !this.isLazy());
     if (!this.triggeredLazy) {
+      this.triggeredLazy = true;
       this.activateSlot();
     }
   }
@@ -39,21 +46,29 @@ class AdvertisingSlot extends Component {
   renderSlot() {
     const { id, style, className, children } = this.props;
     return (
-      <div id={id} style={style} className={className} children={children} data-r16="3.0.2" />
+      <div id={id} style={style} className={className} children={children} data-r16={'4.0.0'} />
     );
   }
 
   renderLazy() {
+    const { lazyConfig, id } = this.props;
     return (
-      <InView as={'div'} root={'0 0 -50vm 0'} onChange={(inView) => { if (inView) { this.triggerLazyLoad(); } }}>
+      <InView
+        key={id+'inview'}
+        as={'div'}
+        rootMargin={lazyConfig.rootMargin}
+        onChange={(inView) => { if (inView) { this.triggerLazyLoad(); } }}
+        triggerOnce={true}
+      >
         {this.renderSlot()}
       </InView>
     );
   }
 
   render() {
-    const { lazyLoad } = this.props;
-    if (lazyLoad) {
+    const { id } = this.props;
+    console.log('AdvertisingSlot: render', id);
+    if (this.isLazy()) {
       return this.renderLazy();
     }
     return this.renderSlot();
@@ -67,7 +82,7 @@ AdvertisingSlot.propTypes = {
   style: PropTypes.object,
   className: PropTypes.string,
   children: PropTypes.node,
-  lazyLoad: PropTypes.bool,
+  lazyConfig: PropTypes.object,
 };
 
 AdvertisingSlot.defaultProps = {

@@ -11,5 +11,6 @@ export default function calculateRootMargin({
     isMobileDevice() && mobileScaling !== undefined && mobileScaling !== -1
       ? marginPercent * mobileScaling
       : marginPercent;
-  return `${(finalMarginPercent / 100) * window.innerHeight}px`;
+  const rootMargin = `${(finalMarginPercent / 100) * window.innerHeight}px`;
+  return rootMargin;
 }
