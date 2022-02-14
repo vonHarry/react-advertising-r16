@@ -30,10 +30,10 @@ jest.mock(
       activate(...args) {
         mockActivate(...args);
       }
-      async setup(...args) {
+      setup(...args) {
         mockSetup(...args);
       }
-      async teardown(...args) {
+      teardown(...args) {
         mockTeardown(...args);
       }
       isConfigReady() {

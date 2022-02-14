@@ -56,7 +56,7 @@ export default class Advertising {
     const selectedSlots = queue.map(
       ({ id }) => {
         const slot = slots[id] || outOfPageSlots[id];
-        if (!slot.enableLazyLoad) {
+        if (!slot?.enableLazyLoad) {
           return slot;
         }
       }
@@ -98,7 +98,6 @@ export default class Advertising {
     this.slots = {};
     this.gptSizeMappings = {};
     this.queue = [];
-    console.log('Advertising: teardown finished');
   }
 
   activate(id, customEventHandlers = {}) {

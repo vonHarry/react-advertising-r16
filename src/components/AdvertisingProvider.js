@@ -35,7 +35,7 @@ export default class AdvertisingProvider extends Component {
     if (!isConfigReady && config && active) {
       this.advertising.setConfig(config);
       // eslint-disable-next-line react/no-did-update-set-state
-      await this.advertising.setup();
+      this.advertising.setup();
       // eslint-disable-next-line react/no-did-update-set-state
       this.setState({
         activate: this.advertising.activate.bind(this.advertising),
@@ -65,19 +65,16 @@ export default class AdvertisingProvider extends Component {
     if (this.props.config) {
       await this.teardown();
     }
-    console.log('AdvertisingProvider: componentWillUnmount finished');
   }
 
   async teardown() {
     await this.advertising?.teardown();
     this.advertising = null;
-    this.setState({ activate: () => {}, config: null });
-    console.log('AdvertisingProvider: teardown finished');
   }
 
   initialize() {
     const { config, plugins, onError } = this.props;
-    this.advertising = new Advertising(config, plugins, onError);
+    this.advertising = new Advertising({...config}, plugins, onError);
   }
 
   render() {

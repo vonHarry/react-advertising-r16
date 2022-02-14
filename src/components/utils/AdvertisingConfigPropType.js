@@ -109,6 +109,7 @@ export default PropTypes.shape({
     PropTypes.shape({
       marginPercent: PropTypes.number,
       mobileScaling: PropTypes.number,
+      rootMargin: PropTypes.string,
     }),
   ]),
 });
