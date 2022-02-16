@@ -1,20 +1,22 @@
+import { render } from '@testing-library/react';
 import React from 'react';
 import connectToAdServer from './connectToAdServer';
-import expectSnapshot from '@mt-testutils/expect-snapshot';
 
 jest.mock('../../AdvertisingContext', () => ({
   Consumer({ children }) {
-    return children('activate');
+    return children({ activate: 'activate', config: {} });
   },
 }));
 
 describe('When I connect a component to the ad server', () => {
-  let ConnectedComponent;
-  beforeEach(
-    () =>
-      (ConnectedComponent = connectToAdServer((props) => <div {...props} />))
-  );
+  let ConnectedComponent, connectedComponent;
+  beforeEach(() => {
+    ConnectedComponent = connectToAdServer((props) => <div {...props} />);
+    ({
+      container: { firstChild: connectedComponent },
+    } = render(<ConnectedComponent foo="bar" />));
+  });
   describe('the connected component', () =>
-    it('renders correctly (activate prop is added, other props are proxied through)', () =>
-      expectSnapshot(<ConnectedComponent foo="bar" />)));
+    void it('renders correctly (activate prop is added, other props are proxied through)', () =>
+      expect(connectedComponent).toMatchSnapshot()));
 });

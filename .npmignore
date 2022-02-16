@@ -1,5 +1,10 @@
 .idea
-npm-module-test/
 *.iml
-**/*.test.js
-**/__snapshots__
+stories/
+.github
+.storybook
+cypress/
+scripts/
+instrumented/
+coverage/
+.nyc_output/

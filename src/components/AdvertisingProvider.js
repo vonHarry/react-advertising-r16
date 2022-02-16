@@ -12,12 +12,13 @@ export default class AdvertisingProvider extends Component {
 
     this.state = {
       activate: this.advertising.activate.bind(this.advertising),
+      config: this.props.config,
     };
   }
 
-  componentDidMount() {
+  async componentDidMount() {
     if (this.advertising.isConfigReady() && this.props.active) {
-      this.advertising.setup();
+      await this.advertising.setup();
     }
   }
 
@@ -33,7 +34,13 @@ export default class AdvertisingProvider extends Component {
     // activate advertising when the config changes from `undefined`
     if (!isConfigReady && config && active) {
       this.advertising.setConfig(config);
+      // eslint-disable-next-line react/no-did-update-set-state
       this.advertising.setup();
+      // eslint-disable-next-line react/no-did-update-set-state
+      this.setState({
+        activate: this.advertising.activate.bind(this.advertising),
+        config: this.advertising.config,
+      });
     } else if (isConfigReady && !equal(prevProps.config, config)) {
       // teardown the old configuration
       // to make sure the teardown and initialization are in a right sequence, need `await`
@@ -42,39 +49,38 @@ export default class AdvertisingProvider extends Component {
       // re-initialize advertising, if it is active
       if (active) {
         this.initialize();
+        if (this.advertising.isConfigReady()) {
+          await this.advertising.setup();
+        }
         // eslint-disable-next-line react/no-did-update-set-state
         this.setState({
           activate: this.advertising.activate.bind(this.advertising),
+          config: this.advertising.config,
         });
-
-        if (this.advertising.isConfigReady()) {
-          this.advertising.setup();
-        }
       }
     }
   }
 
-  componentWillUnmount() {
+  async componentWillUnmount() {
     if (this.props.config) {
-      this.teardown();
+      await this.teardown();
     }
   }
 
   async teardown() {
-    await this.advertising.teardown();
+    await this.advertising?.teardown();
     this.advertising = null;
-    this.activate = null;
   }
 
   initialize() {
     const { config, plugins, onError } = this.props;
-    this.advertising = new Advertising(config, plugins, onError);
+    this.advertising = new Advertising({...config}, plugins, onError);
   }
 
   render() {
-    const { activate } = this.state;
+    const { activate, config } = this.state;
     return (
-      <AdvertisingContext.Provider value={activate}>
+      <AdvertisingContext.Provider value={{ activate, config }}>
         {this.props.children}
       </AdvertisingContext.Provider>
     );
