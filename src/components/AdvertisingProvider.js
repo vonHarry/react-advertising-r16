@@ -79,13 +79,11 @@ export default class AdvertisingProvider extends Component {
 
   render() {
     const { activate, config } = this.state;
-    if (config) {
-      return (
-        <AdvertisingContext.Provider value={{ activate, config }}>
-          {this.props.children}
-        </AdvertisingContext.Provider>
-      );
-    }
+    return (
+      <AdvertisingContext.Provider value={{ activate, config }}>
+        {this.props.children}
+      </AdvertisingContext.Provider>
+    );
   }
 }
 

@@ -4,7 +4,7 @@ import connectToAdServer from './connectToAdServer';
 
 jest.mock('../../AdvertisingContext', () => ({
   Consumer({ children }) {
-    return children({ activate: 'activate' });
+    return children({ activate: 'activate', config: {} });
   },
 }));
 

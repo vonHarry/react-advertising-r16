@@ -10,7 +10,6 @@ const mockConstructor = jest.fn();
 const mockValueSpy = jest.fn();
 const mockIsConfigReady = jest.fn();
 const mockSetConfig = jest.fn();
-const mockGetLazyLoadConfig = jest.fn().mockReturnValue(false);
 
 jest.mock('../AdvertisingContext', () => ({
   // eslint-disable-next-line react/prop-types
@@ -41,9 +40,6 @@ jest.mock(
       }
       setConfig(...args) {
         mockSetConfig(...args);
-      }
-      getLazyLoadConfig(...args) {
-        return mockGetLazyLoadConfig(...args);
       }
     }
 );
