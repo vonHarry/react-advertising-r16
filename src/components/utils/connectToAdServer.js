@@ -7,7 +7,7 @@ export default (Component) => (props) => (
     {(contextData) => {
       const { activate, config } = contextData;
       const lazyConfig = createLazyLoadConfig(config.slots);
-      return <Component {...props} activate={activate} lazyconfig={lazyConfig} />;
+      return <Component {...props} activate={activate} lazyConfig={lazyConfig} />;
     }}
   </AdvertisingContext.Consumer>
 );

@@ -43,7 +43,7 @@ class AdvertisingSlot extends Component {
   renderSlot() {
     const { id, style, className, children } = this.props;
     return (
-      <div id={id} style={style} children={children} className={className} data-r16={'4.0.0'} />
+      <div id={id} style={style} children={children} className={className} data-r16={'4.0.1'} />
     );
   }
 
