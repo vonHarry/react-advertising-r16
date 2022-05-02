@@ -7,19 +7,20 @@ const defaultLazyLoadConfig = {
   rootMargin: '20% 0% 100% 0%'
 };
 const requestManager = {
-  FAILSAFE_TIMEOUT: 3000,
+  FAILSAFE_TIMEOUT: 4500,
   queues: {},
   newQueue: (data) => {
-    const id = `${Date.now()}-${Math.round(Math.random()*100000)}`;
+    const now = Date.now();
+    const id = `${now}-${Math.round(Math.random()*100000)}`;
     requestManager.queues[id] = {
       failsafeTimeout: window.setTimeout(() => {
         logMessage('requestManager failsave triggered', id, data);
-        requestManager.sendAdserverRequest(id);
+        requestManager.sendAdserverRequest(id, data.refreshableSlots);
       }, requestManager.FAILSAFE_TIMEOUT),
       adserverRequestSent: false,
       apsDone: true,
       prebidDone: true,
-      data: data
+      data: { ...data, started: now }
     };
     return id;
   },
@@ -177,7 +178,7 @@ export default class Advertising {
                 Advertising.queueForGPT(
                   () => {
                     const returnedBidsIds = Object.keys(bids);
-                    logMessage('queueBids prebid queueForGPT bids done', returnedBidsIds);
+                    logMessage('queueBids prebid queueForGPT bids done', returnedBidsIds, Date.now() - requestQueue.data.started);
                     requestQueue.prebidDone = true; // signals that Prebid request has completed
                     requestManager.biddersBack(queueId, refreshableSlots, 'prebid');
                   },
@@ -201,7 +202,7 @@ export default class Advertising {
               () => {
                 const returnedBidsIds = Object.keys(bids);
                 window.apstag.setDisplayBids();
-                logMessage('queueBids apstag queueForGPT bids done', returnedBidsIds);
+                logMessage('queueBids apstag queueForGPT bids done', returnedBidsIds, Date.now() - requestQueue.data.started);
                 requestQueue.apsDone = true; // signals that APS request has completed
                 requestManager.biddersBack(queueId, refreshableSlots, 'apstag');
               },

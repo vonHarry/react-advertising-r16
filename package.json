@@ -1,6 +1,6 @@
 {
   "name": "react16-advertising",
-  "version": "4.1.0",
+  "version": "4.1.1",
   "description": "Library for display ads in React applications",
   "main": "lib/index.js",
   "unpkg": "dist/react16-advertising.min.js",
