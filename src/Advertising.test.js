@@ -14,9 +14,10 @@ const GPT_SIZE_MAPPING = [
 ];
 
 describe('When I instantiate an advertising main module', () => {
-  let originalPbjs, originalGoogletag, advertising;
+  let originalPbjs, originalApstag, originalGoogletag, advertising;
   beforeEach(() => {
     originalPbjs = setupPbjs();
+    originalApstag = setupApstag();
     originalGoogletag = setupGoogletag();
     advertising = new Advertising(config);
   });
@@ -640,6 +641,18 @@ function setupPbjs() {
   global.pbjs.setTargetingForGPTAsync = jest.fn();
   global.pbjs.setBidderSequence = jest.fn();
   return originalPbjs;
+}
+
+const mockFetchBids = jest.fn();
+function setupApstag() {
+  const originalApstag = global.apstag;
+  global.apstag = {
+    fetchBids: (config, callback) => {
+      mockFetchBids(config, callback);
+      setTimeout(() => { callback([]); });
+    },
+  };
+  return originalApstag;
 }
 
 function setupGoogletag() {

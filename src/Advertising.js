@@ -7,25 +7,45 @@ const defaultLazyLoadConfig = {
   rootMargin: '20% 0% 100% 0%'
 };
 const requestManager = {
-  queue: {},
-  newQueue: () => {
+  FAILSAFE_TIMEOUT: 3000,
+  queues: {},
+  newQueue: (data) => {
     const id = `${Date.now()}-${Math.round(Math.random()*100000)}`;
-    requestManager.queue[id] = {
+    requestManager.queues[id] = {
+      failsafeTimeout: window.setTimeout(() => {
+        logMessage('requestManager failsave triggered', id, data);
+        requestManager.sendAdserverRequest(id);
+      }, requestManager.FAILSAFE_TIMEOUT),
       adserverRequestSent: false,
       apsDone: true,
       prebidDone: true,
+      data: data
     };
     return id;
   },
-  biddersBack: (queueId, adslotIds, type) => {
-    const queue = requestManager.queue[queueId];
-    logMessage('requestManager biddersBack', queueId, queue, adslotIds, type);
+  biddersBack: (queueId, refreshableSlots, type) => {
+    const queue = requestManager.queues[queueId];
+    logMessage('requestManager biddersBack', queueId, queue, refreshableSlots, type);
     // when both APS and Prebid bids have returned, initiate ad request
     if (queue.apsDone && queue.prebidDone) {
-      logMessage('requestManager biddersBack refresh');
-      queue.adserverRequestSent = true;
-      window.googletag.pubads().refresh(adslotIds);
+      clearTimeout(queue.failsafeTimeout);
+      requestManager.sendAdserverRequest(queueId, refreshableSlots);
     }
+  },
+  sendAdserverRequest: (queueId, refreshableSlots) => {
+    const queue = requestManager.queues[queueId];
+    if (queue.adserverRequestSent === true) {
+      return;
+    }
+    queue.adserverRequestSent = true;
+    googletag.cmd.push(() => {
+      logMessage('requestManager sendAdserverRequest refresh', queueId);
+      if (refreshableSlots) {
+        window.googletag.pubads().refresh(refreshableSlots);
+      } else {
+        window.googletag.pubads().refresh()
+      }
+    });
   }
 };
 
@@ -81,10 +101,8 @@ export default class Advertising {
           customEventHandlers[customEventId]);
       });
     }
-    const prebidSlots = queue.map(({ id }) => id);
-    const apsSlots = config.amazonPublisherServicesSlots;
 
-    this.queueBids(prebidSlots, apsSlots);
+    this.queueBids();
   }
 
   async teardown() {
@@ -117,21 +135,39 @@ export default class Advertising {
         customEventHandlers[customEventId]);
     });
 
-    const prebidSlot = [id];
-    const apsSlot = config.amazonPublisherServicesSlots?.find(slot => slot.slotID === id);
-
-    this.queueBids(prebidSlot, apsSlot);
+    this.queueBids(id);
   }
 
-  queueBids(prebidSlots, apsSlots) {
-    const { isPrebidUsed, isApsTagUsed } = this;
+  queueBids(singleId) {
+    const { slots, outOfPageSlots, queue, config, isPrebidUsed, isApsTagUsed } = this;
+    let prebidSlots, apsSlots, refreshableSlots = [];
+
+    if (singleId) {
+      refreshableSlots = slots[singleId] || outOfPageSlots[singleId];
+      prebidSlots = [singleId];
+      if (config.amazonPublisherServicesSlots) {
+        apsSlots = config.amazonPublisherServicesSlots?.find(slot => slot.slotID === singleId) || [];
+      }
+    } else {
+      refreshableSlots = null;
+      prebidSlots = queue.map(({ id }) => id);
+      if (config.amazonPublisherServicesSlots) {
+        apsSlots = config.amazonPublisherServicesSlots;
+      }
+    }
 
     if (isPrebidUsed || isApsTagUsed) {
-      const queueId = requestManager.newQueue();
+      const queueId = requestManager.newQueue({
+        singleId,
+        refreshableSlots,
+        prebidSlots,
+        apsSlots
+      });
+      const requestQueue = requestManager.queues[queueId];
 
       if (isPrebidUsed) {
-        requestManager.queue[queueId].prebidDone = false;
-        logMessage('queueBids prebid apsSlots', prebidSlots);
+        requestQueue.prebidDone = false;
+        logMessage('queueBids prebid prebidSlots', prebidSlots);
         Advertising.queueForPrebid(
           () =>
             window.pbjs.requestBids({
@@ -142,8 +178,8 @@ export default class Advertising {
                   () => {
                     const returnedBidsIds = Object.keys(bids);
                     logMessage('queueBids prebid queueForGPT bids done', returnedBidsIds);
-                    requestManager.queue[queueId].prebidDone = true; // signals that Prebid request has completed
-                    requestManager.biddersBack(queueId, returnedBidsIds, 'prebid');
+                    requestQueue.prebidDone = true; // signals that Prebid request has completed
+                    requestManager.biddersBack(queueId, refreshableSlots, 'prebid');
                   },
                   this.onError
                 );
@@ -156,18 +192,18 @@ export default class Advertising {
       if (isApsTagUsed) {
         logMessage('queueBids apstag apsSlots', apsSlots);
         if (apsSlots && apsSlots.length > 0) {
-          requestManager.queue[queueId].apsDone = false;
+          requestQueue.apsDone = false;
           window.apstag.fetchBids({
             slots: apsSlots,
             timeout: 3500
-          }, function(bids) {
+          }, (bids) => {
             Advertising.queueForGPT(
               () => {
                 const returnedBidsIds = Object.keys(bids);
                 window.apstag.setDisplayBids();
                 logMessage('queueBids apstag queueForGPT bids done', returnedBidsIds);
-                requestManager.queue[queueId].apsDone = true; // signals that APS request has completed
-                requestManager.biddersBack(queueId, returnedBidsIds, 'apstag');
+                requestQueue.apsDone = true; // signals that APS request has completed
+                requestManager.biddersBack(queueId, refreshableSlots, 'apstag');
               },
               this.onError
             );
@@ -175,18 +211,10 @@ export default class Advertising {
         }
       }
     } else {
-      const selectedSlots = queue.map(
-        ({ id }) => {
-          const slot = slots[id] || outOfPageSlots[id];
-          if (!slot?.enableLazyLoad) {
-            return slot;
-          }
-        }
-      );
       Advertising.queueForGPT(
         () => {
-          logMessage('queueBids no prebid/apstag queueForGPT', selectedSlots);
-          window.googletag.pubads().refresh(selectedSlots);
+          logMessage('queueBids no prebid/apstag queueForGPT', refreshableSlots);
+          window.googletag.pubads().refresh(refreshableSlots);
         },
         this.onError
       );
@@ -361,7 +389,7 @@ export default class Advertising {
 
   setupGpt() {
     this.executePlugins('setupGpt');
-    logMessage('setupGpt');
+    logMessage('setupGpt', requestManager.queues);
     const pubads = window.googletag.pubads();
     const { targeting } = this.config;
     this.defineGptSizeMappings();
