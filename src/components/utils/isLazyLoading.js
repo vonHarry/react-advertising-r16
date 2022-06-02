@@ -6,5 +6,8 @@ export default function isLazyLoading(id, config) {
   if (!slotConfig) {
     return false;
   }
-  return slotConfig.enableLazyLoad !== undefined && slotConfig.enableLazyLoad !== null;
+  return (
+    slotConfig.enableLazyLoad !== undefined &&
+    slotConfig.enableLazyLoad !== null
+  );
 }

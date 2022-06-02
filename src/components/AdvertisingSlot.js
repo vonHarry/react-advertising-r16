@@ -7,7 +7,7 @@ class AdvertisingSlot extends Component {
   constructor(props) {
     super(props);
     this.triggeredLazy = false;
-    this.lazyConfig = props.lazyConfig?.find(slot => slot.id === props.id);
+    this.lazyConfig = props.lazyConfig?.find((slot) => slot.id === props.id);
   }
 
   componentDidMount() {
@@ -25,7 +25,7 @@ class AdvertisingSlot extends Component {
   }
 
   isLazy() {
-    return this.lazyConfig !== undefined
+    return this.lazyConfig !== undefined;
   }
 
   triggerLazyLoad() {
@@ -43,19 +43,31 @@ class AdvertisingSlot extends Component {
   renderSlot() {
     const { id, style, className, children } = this.props;
     return (
-      <div id={id} style={style} children={children} className={className} data-r16={'4.0.1'} />
+      <div
+        id={id}
+        style={style}
+        children={children}
+        className={className}
+        data-r16={'4.1.5-beta.23'}
+      />
     );
   }
 
   renderLazy() {
     const { id } = this.props;
-    if (!this.isLazy()) { return null; }
+    if (!this.isLazy()) {
+      return null;
+    }
     return (
       <InView
         id={id + '-inview'}
         as={'div'}
         rootMargin={this.lazyConfig.data.rootMargin}
-        onChange={(inView) => { if (inView) { this.triggerLazyLoad(); } }}
+        onChange={(inView) => {
+          if (inView) {
+            this.triggerLazyLoad();
+          }
+        }}
         triggerOnce={true}
       >
         {this.renderSlot()}

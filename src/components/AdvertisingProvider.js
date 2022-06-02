@@ -74,7 +74,7 @@ export default class AdvertisingProvider extends Component {
 
   initialize() {
     const { config, plugins, onError } = this.props;
-    this.advertising = new Advertising({...config}, plugins, onError);
+    this.advertising = new Advertising({ ...config }, plugins, onError);
   }
 
   render() {

@@ -649,7 +649,9 @@ function setupApstag() {
   global.apstag = {
     fetchBids: (config, callback) => {
       mockFetchBids(config, callback);
-      setTimeout(() => { callback([]); });
+      setTimeout(() => {
+        callback([]);
+      });
     },
   };
   return originalApstag;

@@ -7,8 +7,8 @@ export default function createLazyLoadConfig(slots) {
     if (typeof slot.enableLazyLoad === 'object') {
       lazyConfigSlots.push({
         id: slot.id,
-        data: slot.enableLazyLoad
-      })
+        data: slot.enableLazyLoad,
+      });
     }
   });
   if (lazyConfigSlots.length === 0) {

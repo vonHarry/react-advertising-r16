@@ -1,62 +1,13 @@
 import getAdUnits from './utils/getAdUnits';
 import logMessage from './utils/logMessage';
+import AdvertisingRequestManager from './AdvertisingRequestManager';
 
 const defaultLazyLoadConfig = {
   marginPercent: 100,
   mobileScaling: 1,
-  rootMargin: '20% 0% 100% 0%'
+  rootMargin: '20% 0% 100% 0%',
 };
-const requestManager = {
-  FAILSAFE_TIMEOUT: 4500,
-  queues: {},
-  newQueue: (data) => {
-    const now = Date.now();
-    const queueId = `${now}-${Math.round(Math.random()*100000)}`;
-    logMessage('requestManager new queue', queueId, data);
-    requestManager.queues[queueId] = {
-      failsafeTimeout: window.setTimeout(() => {
-        logMessage('requestManager failsave triggered', queueId, data);
-        requestManager.sendAdserverRequest(queueId);
-      }, requestManager.FAILSAFE_TIMEOUT),
-      adserverRequestSent: false,
-      apstagDone: true,
-      prebidDone: true,
-      data: { ...data, started: now }
-    };
-    return queueId;
-  },
-  biddersBack: (queueId, type) => {
-    const queue = requestManager.queues[queueId];
-    queue.data.availableSlots.forEach(slot => {
-      slot.lifetimeData[type].response = true;
-    });
-    logMessage('requestManager.biddersBack', queueId, queue, queue.data.availableSlots, type);
-    // when both APS and Prebid bids have returned, initiate ad request
-    if (queue.apstagDone && queue.prebidDone) {
-      clearTimeout(queue.failsafeTimeout);
-      requestManager.sendAdserverRequest(queueId, 'biddersBack');
-    }
-  },
-  sendAdserverRequest: (queueId) => {
-    const queue = requestManager.queues[queueId];
-    queue.data.availableSlots.forEach(slot => {
-      logMessage('requestManager.sendAdserverRequest: availableSlots', slot.getSlotElementId());
-      if (slot.lifetimeData) {
-        slot.lifetimeData.response = true;
-      } else {
-        logMessage('requestManager.sendAdserverRequest: availableSlots no lifetime data', slot.getSlotElementId());
-      }
-    });
-    if (queue.adserverRequestSent === true) {
-      return;
-    }
-    queue.adserverRequestSent = true;
-    googletag.cmd.push(() => {
-      logMessage('requestManager sendAdserverRequest refresh', queueId);
-      window.googletag.pubads().refresh(queue.data.availableSlots);
-    });
-  }
-};
+const requestManager = new AdvertisingRequestManager();
 
 export default class Advertising {
   constructor(config, plugins = [], onError = () => {}) {
@@ -69,6 +20,13 @@ export default class Advertising {
     this.customEventCallbacks = {};
     this.customEventHandlers = {};
     this.queue = [];
+    this.biddingConfig = config.biddingConfig || {
+      biddingApstagTimeout: 3500,
+      requestTimeoutLock: false,
+      requestFailsafeTimeout: 4500,
+      requestWaitTimeout: 300,
+    };
+    requestManager.setConfig(this.biddingConfig);
     this.setDefaultConfig();
   }
 
@@ -86,7 +44,8 @@ export default class Advertising {
     logMessage('setup', this.isPrebidUsed, this.isApstagUsed);
 
     this.executePlugins('setup');
-    const { queue, isPrebidUsed, config } = this;
+    const { queue, isPrebidUsed } = this;
+
     this.setupCustomEvents();
     const setUpQueueItems = [
       Advertising.queueForGPT(this.setupGpt.bind(this), this.onError),
@@ -159,89 +118,143 @@ export default class Advertising {
 
   queueBids(singleId) {
     logMessage('queueBids', singleId);
-    const { queue, isPrebidUsed, isApstagUsed } = this;
-    let availableSlots = [], prebidRequestData = [], apstagRequestData = [];
+    const { queue, config } = this;
+    const requestQueue = requestManager.getQueue();
+    let tempSlots = [];
+    let availableSlots = [];
+    const prebidRequestData = [];
+    const apstagRequestData = [];
 
     if (singleId) {
-      availableSlots = [this.getSlotFromId(singleId)];
+      tempSlots = [this.getSlotFromId(singleId)];
     } else {
-      availableSlots = queue.map(({ id }) => this.getSlotFromId(id));
+      tempSlots = queue.map(({ id }) => this.getSlotFromId(id));
     }
-    prebidRequestData = this.registerAndFilterRequestedAdSlots(availableSlots.map(slot => {
+    tempSlots = this.registerAndFilterRequestedAdSlots(tempSlots);
+    const availableIDs = tempSlots.map((slot) =>
+      slot.getSlotElementId()
+    );
+    availableSlots = tempSlots.concat(
+      requestQueue.availableSlots.filter((item) => {
+        if (availableIDs.indexOf(item.getSlotElementId()) < 0) {
+          availableIDs.push(item.getSlotElementId());
+          return true;
+        }
+        return false;
+      })
+    );
+    logMessage(
+      'queueBids merge and unique availableSlots',
+      tempSlots,
+      availableSlots,
+      requestQueue.availableSlots
+    );
+    availableSlots.forEach((slot) => {
       if (slot.prebid) {
-        return slot.id;
+        prebidRequestData.push(slot.getSlotElementId());
       }
-    }), 'prebid');
-    apstagRequestData = this.registerAndFilterRequestedAdSlots(availableSlots.map(slot => {
       if (slot.apstag) {
-        return slot.apstag;
+        apstagRequestData.push(slot.apstag);
       }
-    }));
-
-    const prebidRequestAllowed = isPrebidUsed && prebidRequestData && prebidRequestData.length > 0;
-    const apstagRequestAllowed = isApstagUsed && apstagRequestData && apstagRequestData.length > 0;
-
-    logMessage('queueBids requestable prebid, apstag', prebidRequestAllowed, apstagRequestAllowed);
-
-    if (prebidRequestAllowed || apstagRequestAllowed) {
-      const queueId = requestManager.newQueue({
-        availableSlots,
-        prebidRequestData,
-        apstagRequestData
-      });
-      const requestQueue = requestManager.queues[queueId];
-
-      if (prebidRequestAllowed) {
-        logMessage('queueBids prebid prebidSlots', prebidRequestData);
-        requestQueue.prebidDone = false;
-        Advertising.queueForPrebid(
-          () =>
-            window.pbjs.requestBids({
-              adUnitCodes: prebidRequestData,
-              bidsBackHandler: (bids) => {
-                window.pbjs.setTargetingForGPTAsync(prebidRequestData);
-                Advertising.queueForGPT(
-                  () => {
-                    const returnedBidsIds = Object.keys(bids);
-                    logMessage('queueBids prebid queueForGPT bids done', returnedBidsIds, Date.now() - requestQueue.data.started);
-                    requestQueue.prebidDone = true; // signals that Prebid request has completed
-                    requestManager.biddersBack(queueId, 'prebid');
-                  },
-                  this.onError
-                );
-              },
-            }),
-          this.onError
-        );
-      }
-
-      if (apstagRequestAllowed) {
-        logMessage('queueBids apstag apsSlots', apstagRequestData);
-        requestQueue.apstagDone = false;
-        window.apstag.fetchBids({
-          slots: apstagRequestData,
-          timeout: 3500
-        }, (bids) => {
-          Advertising.queueForGPT(
-            () => {
-              const returnedBidsIds = Object.keys(bids);
-              window.apstag.setDisplayBids();
-              logMessage('queueBids apstag queueForGPT bids done', returnedBidsIds, Date.now() - requestQueue.data.started);
-              requestQueue.apstagDone = true; // signals that APS request has completed
-              requestManager.biddersBack(queueId, 'apstag');
-            },
-            this.onError
+    });
+    requestManager.updateQueue(requestQueue, {
+      availableSlots,
+      prebidRequestData,
+      apstagRequestData,
+    });
+    logMessage('queueBids update requestQueue', requestQueue);
+    if (
+      config.biddingConfig &&
+      config.biddingConfig.requestTimeoutLock === true
+    ) {
+      logMessage('queueBids waitTimeoutCallback added', requestQueue.id);
+      requestManager.updateQueue(requestQueue, {
+        waitTimeoutCallback: () => {
+          logMessage(
+            'queueBids waitTimeoutCallback triggered requestBids()',
+            requestQueue.id,
+            requestQueue.waitTimeoutCallback
           );
-        });
-      }
-    } else {
-      Advertising.queueForGPT(
-        () => {
-          logMessage('queueBids no prebid/apstag queueForGPT', availableSlots);
-          window.googletag.pubads().refresh(availableSlots);
+          this.requestBids(requestQueue);
         },
+      });
+    } else {
+      logMessage('queueBids direct requestBids()', requestQueue.id);
+      this.requestBids(requestQueue);
+    }
+  }
+
+  requestBids(requestQueue) {
+    const { isPrebidUsed, isApstagUsed } = this;
+    const { prebidRequestData, apstagRequestData, availableSlots } =
+      requestQueue;
+
+    const prebidRequestAllowed =
+      isPrebidUsed && prebidRequestData && prebidRequestData.length > 0;
+    const apstagRequestAllowed =
+      isApstagUsed && apstagRequestData && apstagRequestData.length > 0;
+
+    if (prebidRequestAllowed) {
+      logMessage('requestBids prebid prebidSlots', prebidRequestData);
+      requestQueue.prebidDone = false;
+      Advertising.queueForPrebid(
+        () =>
+          window.pbjs.requestBids({
+            adUnitCodes: prebidRequestData,
+            bidsBackHandler: (bids) => {
+              window.pbjs.setTargetingForGPTAsync(prebidRequestData);
+              const returnedBidsIds = Object.keys(bids);
+              logMessage(
+                'requestBids prebid response',
+                returnedBidsIds,
+                Date.now() - requestQueue.started
+              );
+              requestQueue.availableSlots.forEach((slot) => {
+                if (slot.lifetimeData) {
+                  slot.lifetimeData.prebidResponded = true;
+                }
+              });
+              requestQueue.prebidDone = true; // signals that Prebid request has completed
+              requestManager.biddersBack(requestQueue, 'prebid');
+            },
+          }),
         this.onError
       );
+    }
+
+    if (apstagRequestAllowed) {
+      logMessage('requestBids apstag apsSlots', apstagRequestData);
+      requestQueue.apstagDone = false;
+      window.apstag.fetchBids(
+        {
+          slots: apstagRequestData,
+          timeout: this.biddingConfig.biddingApstagTimeout,
+        },
+        (bids) => {
+          const returnedBidsIds = Object.keys(bids);
+          window.apstag.setDisplayBids();
+          logMessage(
+            'requestBids apstag response',
+            returnedBidsIds,
+            Date.now() - requestQueue.started
+          );
+
+          requestQueue.availableSlots.forEach((slot) => {
+            if (slot.lifetimeData) {
+              slot.lifetimeData.apstagResponded = true;
+            }
+          });
+          requestQueue.apstagDone = true; // signals that APS request has completed
+          requestManager.biddersBack(requestQueue, 'apstag');
+        }
+      );
+    }
+
+    if (!prebidRequestAllowed && !apstagRequestAllowed) {
+      Advertising.queueForGPT(() => {
+        logMessage('queueBids no prebid/apstag queueForGPT', availableSlots);
+        window.googletag.pubads().refresh(availableSlots);
+      }, this.onError);
     }
   }
 
@@ -249,26 +262,30 @@ export default class Advertising {
     return this.slots[id] || this.outOfPageSlots[id];
   }
 
-  registerAndFilterRequestedAdSlots(slots, framework) {
+  registerAndFilterRequestedAdSlots(slots) {
     const { config } = this;
-    if (config.bidderRequestTimeoutLock === true) {
+    if (
+      config.biddingConfig &&
+      config.biddingConfig.requestTimeoutLock === true
+    ) {
       const now = Date.now();
       const lockedTime = now + 5000;
       const filteredSlots = [];
-      const lifetimeData = {
-        prebid: { lockedTime: framework === 'prebid' ? lockedTime : 0, response: false },
-        apstag: { lockedTime: framework === 'apstag' ? lockedTime : 0, response: false },
-        activated: false,
-        adserverRequest: false,
-        rendered: false,
-        visible: false
-      };
-      slots.forEach(slot => {
-        if (slot && (!slot.lifetimeData || slot.lifetimeData[framework].lockedTime < now)) {
-          slot.lifetimeData = lifetimeData;
+      slots.forEach((slot) => {
+        const canChecked = slot && slot.lifetimeData;
+        const bidderNotLocked =
+          canChecked && slot.lifetimeData.bidderLockedTime < now;
+        if (bidderNotLocked) {
+          slot.lifetimeData = { ...AdvertisingRequestManager.slotLifetimeData };
+          slot.lifetimeData.bidderLockedTime = lockedTime;
         }
         filteredSlots.push(slot);
       });
+      logMessage(
+        'registerAndFilterRequestedAdSlots bidderRequestTimeoutLock',
+        filteredSlots,
+        slots
+      );
       return filteredSlots;
     }
     return slots;
@@ -364,6 +381,8 @@ export default class Advertising {
         targeting = {},
         sizes,
         sizeMappingName,
+        prebid,
+        apstag,
       }) => {
         const slot = window.googletag.defineSlot(
           path || this.config.path,
@@ -390,14 +409,13 @@ export default class Advertising {
           slot.setTargeting(key, value);
         }
 
-        slot.lifetimeData = {
-          prebid: { lockedTime: 0, response: false },
-          apstag: { lockedTime: 0, response: false },
-          activated: false,
-          adserverRequest: false,
-          rendered: false,
-          visible: false
-        };
+        slot.lifetimeData = { ...AdvertisingRequestManager.slotLifetimeData };
+        if (prebid) {
+          slot.prebid = prebid;
+        }
+        if (apstag) {
+          slot.apstag = apstag;
+        }
 
         slot.addService(window.googletag.pubads());
 
@@ -501,7 +519,9 @@ export default class Advertising {
     if (this.config.slots) {
       this.config.slots = this.config.slots.map((slot) => {
         const isLazyLoadingEnabled = slot.enableLazyLoad === true;
-        const newSlot = isLazyLoadingEnabled ? { ...slot, enableLazyLoad: defaultLazyLoadConfig } : slot;
+        const newSlot = isLazyLoadingEnabled
+          ? { ...slot, enableLazyLoad: defaultLazyLoadConfig }
+          : slot;
         return newSlot;
       });
     }
