@@ -115,15 +115,15 @@ export default class AdvertisingRequestManager {
 
   sendAdserverRequest(queue) {
     queue.availableSlots.forEach((slot) => {
-      logMessage(
-        'requestManager.sendAdserverRequest: availableSlots',
-        slot.getSlotElementId(),
-        slot.lifetimeData,
-        typeof slot.getTargetingMap === 'function'
-          ? slot.getTargetingMap()
-          : 'no func'
-      );
-      if (slot.lifetimeData) {
+      if (slot && slot.lifetimeData) {
+        logMessage(
+          'requestManager.sendAdserverRequest: availableSlots',
+          slot.getSlotElementId(),
+          slot.lifetimeData,
+          typeof slot.getTargetingMap === 'function'
+            ? slot.getTargetingMap()
+            : 'no func'
+        );
         slot.lifetimeData.response = true;
       }
     });

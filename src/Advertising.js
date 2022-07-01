@@ -132,7 +132,7 @@ export default class Advertising {
     }
     tempSlots = this.registerAndFilterRequestedAdSlots(tempSlots);
     const availableIDs = tempSlots.map((slot) =>
-      slot.getSlotElementId()
+      slot && slot.getSlotElementId ? slot.getSlotElementId() : ''
     );
     availableSlots = tempSlots.concat(
       requestQueue.availableSlots.filter((item) => {
@@ -150,10 +150,10 @@ export default class Advertising {
       requestQueue.availableSlots
     );
     availableSlots.forEach((slot) => {
-      if (slot.prebid) {
+      if (slot && slot.prebid) {
         prebidRequestData.push(slot.getSlotElementId());
       }
-      if (slot.apstag) {
+      if (slot && slot.apstag) {
         apstagRequestData.push(slot.apstag);
       }
     });
@@ -210,7 +210,7 @@ export default class Advertising {
                 Date.now() - requestQueue.started
               );
               requestQueue.availableSlots.forEach((slot) => {
-                if (slot.lifetimeData) {
+                if (slot && slot.lifetimeData) {
                   slot.lifetimeData.prebidResponded = true;
                 }
               });
@@ -240,7 +240,7 @@ export default class Advertising {
           );
 
           requestQueue.availableSlots.forEach((slot) => {
-            if (slot.lifetimeData) {
+            if (slot && slot.lifetimeData) {
               slot.lifetimeData.apstagResponded = true;
             }
           });
